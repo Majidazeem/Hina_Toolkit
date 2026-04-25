@@ -1223,7 +1223,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, get, set, update }
+import { getDatabase, ref, get, set, update, onValue }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -1434,7 +1434,7 @@ const DEFAULT_TOOLS = [
 ];
 
 async function initToolkit(keyObj) {
-  // ── Load tools from Firebase ──────────────────────────────
+  // ── Load tools ONLY from Firebase (admin controls everything) ──
   try {
     const snap = await get(ref(db, 'hina_tools'));
     if (snap.exists()) {
@@ -1446,6 +1446,16 @@ async function initToolkit(keyObj) {
     tools = JSON.parse(JSON.stringify(DEFAULT_TOOLS));
   }
   nextId = tools.reduce((m, t) => Math.max(m, t.id), 0) + 1;
+  // Real-time listener — jab admin kuch add/delete kare toh toolkit mein foran update ho
+  try {
+    onValue(ref(db, 'hina_tools'), (snapshot) => {
+      if (snapshot.exists()) {
+        tools = Object.values(snapshot.val()).filter(t => t && t.id);
+        nextId = tools.reduce((m, t) => Math.max(m, t.id), 0) + 1;
+        renderAll();
+      }
+    });
+  } catch(e) { console.warn('realtime listener error', e); }
 
   // ── Update header plan badge ──────────────────────────────
   const planBadgeEl = document.getElementById('userPlanBadge');
@@ -1660,10 +1670,6 @@ function cardHTML(t) {
         ${extBadge}
       </div>
     </div>
-    <div class="tool-actions" onclick="event.stopPropagation()">
-      <button class="action-btn pin-btn" onclick="togglePin(${t.id})" title="Pin">${t.pinned ? '📌' : '📍'}</button>
-      <button class="action-btn del-btn" onclick="deleteTool(${t.id})" title="Delete">🗑️</button>
-    </div>
   </div>`;
 }
 
@@ -1721,55 +1727,18 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-// ══ ADD/EDIT/DELETE/PIN TOOLS (user-side) ════════════════════
-function addTool() {
-  const name = document.getElementById('newToolName')?.value.trim();
-  if (!name) { showToast('⚠️ Enter tool name!'); return; }
-  const logic = document.getElementById('newToolLogic')?.value.trim();
-  if (!logic) { showToast('⚠️ Enter tool logic!'); return; }
-  const t = {
-    id: nextId++,
-    name,
-    icon: selectedEmoji || '🛠️',
-    category: document.getElementById('newToolCategory')?.value || 'Custom',
-    desc: document.getElementById('newToolDesc')?.value.trim() || '',
-    placeholder: document.getElementById('newToolPlaceholder')?.value.trim() || 'Enter input...',
-    logic,
-    pinned: false
-  };
-  tools.push(t);
-  saveLocalTools();
-  renderAll();
-  closeAddModal();
-  showToast('✅ Tool added!');
-}
+// ══ READ-ONLY TOOL MANAGEMENT (admin controls from Firebase) ════
+// Users cannot add/delete/pin tools — admin panel controls everything
 
+function deleteTool(id) { /* disabled — admin only */ }
+function togglePin(id) { /* disabled — admin only */ }
+function selectEmoji(e) {}
+function saveLocalTools() { /* disabled — use Firebase */ }
 function closeAddModal() {
   const m = document.getElementById('addToolModal');
   if (m) { m.classList.remove('open'); setTimeout(() => m.style.display = 'none', 300); }
 }
-
-function deleteTool(id) {
-  tools = tools.filter(t => t.id !== id);
-  saveLocalTools();
-  renderAll();
-  showToast('🗑️ Tool removed');
-}
-
-function togglePin(id) {
-  const t = tools.find(x => x.id === id);
-  if (t) { t.pinned = !t.pinned; saveLocalTools(); renderAll(); }
-}
-
-function selectEmoji(e) {
-  selectedEmoji = e;
-  const el = document.getElementById('selectedEmojiDisplay');
-  if (el) el.textContent = e;
-}
-
-function saveLocalTools() {
-  try { localStorage.setItem('hina_user_tools', JSON.stringify(tools)); } catch(e) {}
-}
+function addTool() { showToast('⚠️ Tools sirf Admin se add hote hain!'); }
 
 
 // ══ EXTERNAL TOOL IFRAME ════════════════════════════════════
@@ -1816,6 +1785,8 @@ window.closeAddModal = closeAddModal;
 window.togglePin = togglePin;
 window.deleteTool = deleteTool;
 window.copyText = copyText;
+
+    
 window.selectEmoji = selectEmoji;
 window.dismissNotif = dismissNotif;
 window.openExtTool = openExtTool;
