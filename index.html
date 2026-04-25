@@ -928,6 +928,120 @@
   .nb-msg { font-size: 13px; color: var(--text-light); line-height: 1.4; margin-top: 2px; }
   .nb-close { background: var(--bg); border: none; border-radius: 10px; padding: 6px 12px; cursor: pointer; box-shadow: var(--neu-flat); font-size: 16px; color: var(--text-light); transition: all .2s; flex-shrink: 0; }
   .nb-close:hover { box-shadow: var(--neu-hover); color: var(--primary); }
+
+  /* ── EXTERNAL TOOL IFRAME OVERLAY ─────────────────── */
+  .ext-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9990;
+    background: var(--bg);
+    display: none;
+    flex-direction: column;
+    animation: su .3s ease;
+  }
+  .ext-overlay.open { display: flex; }
+  .ext-topbar {
+    background: var(--bg);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 4px 16px var(--neu-shadow-dark, #a3b1c6);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+  }
+  .ext-back-btn {
+    background: var(--bg);
+    border: none;
+    border-radius: 12px;
+    padding: 10px 18px;
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    cursor: pointer;
+    box-shadow: var(--neu-flat);
+    color: var(--primary);
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .ext-back-btn:hover { box-shadow: var(--neu-hover); }
+  .ext-back-btn:active { box-shadow: var(--neu-pressed); }
+  .ext-tool-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 2px;
+    flex: 1;
+  }
+  .ext-open-btn {
+    background: var(--bg);
+    border: none;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    box-shadow: var(--neu-flat);
+    color: var(--accent);
+    transition: all .2s;
+    flex-shrink: 0;
+  }
+  .ext-open-btn:hover { box-shadow: var(--neu-hover); }
+  .ext-iframe {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: #fff;
+  }
+  .ext-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    background: var(--bg);
+    z-index: 1;
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    color: var(--text-light);
+    letter-spacing: 2px;
+  }
+  .ext-spinner {
+    width: 48px; height: 48px;
+    border: 4px solid var(--neu-shadow-dark, #a3b1c6);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  /* External tool card badge */
+  .ext-badge {
+    display: inline-block;
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    box-shadow: var(--neu-flat);
+    margin-top: 4px;
+  }
+
 </style>
 </head>
 <body>
@@ -1533,13 +1647,17 @@ function iconForCard(t) {
 }
 
 function cardHTML(t) {
-  return `<div class="tool-card ${t.pinned ? 'pinned' : ''}" onclick="openModal(${t.id})">
+  const isExt = t.type === 'external' && t.url;
+  const clickFn = isExt ? `openExtTool(${t.id})` : `openModal(${t.id})`;
+  const extBadge = isExt ? `<div class="ext-badge">🔗 External</div>` : '';
+  return `<div class="tool-card ${t.pinned ? 'pinned' : ''}" onclick="${clickFn}">
     <div class="tool-card-inner">
       <div class="tool-icon-wrap">${iconForCard(t)}</div>
       <div class="tool-info">
         <div class="tool-name">${t.name}${t.pinned ? '<span class="pin-badge">📌</span>' : ''}</div>
         <div class="tool-desc">${t.desc || ''}</div>
         <div class="tool-cat-badge">${t.category}</div>
+        ${extBadge}
       </div>
     </div>
     <div class="tool-actions" onclick="event.stopPropagation()">
@@ -1653,6 +1771,36 @@ function saveLocalTools() {
   try { localStorage.setItem('hina_user_tools', JSON.stringify(tools)); } catch(e) {}
 }
 
+
+// ══ EXTERNAL TOOL IFRAME ════════════════════════════════════
+function openExtTool(id) {
+  const t = tools.find(x => x.id === id);
+  if (!t || !t.url) return;
+  const overlay = document.getElementById('extOverlay');
+  const iframe  = document.getElementById('extIframe');
+  const nameEl  = document.getElementById('extToolName');
+  const loading = document.getElementById('extLoading');
+  if (!overlay || !iframe) return;
+  nameEl.textContent = t.name;
+  loading.style.display = 'flex';
+  iframe.src = '';
+  overlay.classList.add('open');
+  // slight delay so overlay renders first
+  setTimeout(() => { iframe.src = t.url; }, 100);
+  window._extUrl = t.url;
+}
+
+function closeExtTool() {
+  const overlay = document.getElementById('extOverlay');
+  const iframe  = document.getElementById('extIframe');
+  if (overlay) overlay.classList.remove('open');
+  if (iframe)  iframe.src = '';
+}
+
+function openExtNewTab() {
+  if (window._extUrl) window.open(window._extUrl, '_blank');
+}
+
 // EXPOSE
 window.formatKeyInput = formatKeyInput;
 window.verifyKey = verifyKey;
@@ -1670,6 +1818,26 @@ window.deleteTool = deleteTool;
 window.copyText = copyText;
 window.selectEmoji = selectEmoji;
 window.dismissNotif = dismissNotif;
+window.openExtTool = openExtTool;
+window.closeExtTool = closeExtTool;
+window.openExtNewTab = openExtNewTab;
 </script>
+
+<!-- EXTERNAL TOOL IFRAME OVERLAY -->
+<div class="ext-overlay" id="extOverlay">
+  <div class="ext-topbar">
+    <button class="ext-back-btn" onclick="closeExtTool()">← Back</button>
+    <div class="ext-tool-name" id="extToolName">Tool</div>
+    <button class="ext-open-btn" onclick="openExtNewTab()" title="New tab mein kholein">↗ New Tab</button>
+  </div>
+  <div style="position:relative;flex:1;display:flex;flex-direction:column;">
+    <div class="ext-loading" id="extLoading">
+      <div class="ext-spinner"></div>
+      <div>LOADING TOOL...</div>
+    </div>
+    <iframe class="ext-iframe" id="extIframe" onload="document.getElementById('extLoading').style.display='none'"></iframe>
+  </div>
+</div>
+
 </body>
 </html>
