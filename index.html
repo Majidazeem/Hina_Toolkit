@@ -114,7 +114,7 @@
   .kl-plan-info { background: var(--surface); box-shadow: var(--neu-in); border-radius: 14px; padding: 14px 18px; text-align: left; font-size: 13px; margin-bottom: 16px; display: none; }
   .kl-plan-info .plan-row { display: flex; justify-content: space-between; padding: 4px 0; color: var(--text-sub); }
   .kl-plan-info .plan-row span:last-child { font-weight: 600; color: var(--text); }
- display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: var(--surface); box-shadow: var(--neu-out); border: none; border-radius: 14px; color: #25d366; font-size: 14px; font-weight: 600; font-family: 'Poppins', sans-serif; cursor: pointer; width: 100%; transition: var(--transition); }
+  .kl-whatsapp-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; background: var(--surface); box-shadow: var(--neu-out); border: none; border-radius: 14px; color: #25d366; font-size: 14px; font-weight: 600; font-family: 'Poppins', sans-serif; cursor: pointer; width: 100%; transition: var(--transition); }
   .kl-whatsapp-btn:hover { transform: translateY(-2px); box-shadow: var(--neu-hover); }
 
   /* ===== MAIN TOOLKIT ===== */
@@ -744,7 +744,7 @@ function logout() {
   document.getElementById('klPlanInfo').style.display = 'none';
   sessionStorage.removeItem('notif_dismissed');
 }
-function openWhatsApp() { window.open('https://whatsapp.com/channel/0029Vb7GA3v1t90e9vPQzW1p', '_blank'); }
+function openWhatsApp() { window.open('https://wa.me/923262641380', '_blank'); }
 
 // Enter key on login
 document.getElementById('keyInput').addEventListener('keydown', e => { if(e.key==='Enter') validateKey(); });
